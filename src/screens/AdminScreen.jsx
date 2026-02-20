@@ -213,7 +213,7 @@ export default function AdminScreen() {
                   flexDirection: "row",
                   paddingVertical: 12,
                   borderBottomWidth: 1,
-                  borderColor: "#eee",
+                  borderColor: "#eee1e1",
                   alignItems: "center",
                 }}
               >
