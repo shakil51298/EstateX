@@ -7,17 +7,17 @@ import {
   Pressable,
   TextInput,
   Alert,
+  Modal,
 } from "react-native";
+import * as FileSystem from "expo-file-system";
 import { supabase } from "../api/supabase";
 
 export default function AdminAllUsers() {
   const [users, setUsers] = useState([]);
-  const [creating, setCreating] = useState(false);
-  const [newUser, setNewUser] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-  });
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
   async function loadUsers() {
     const { data } = await supabase
@@ -32,6 +32,7 @@ export default function AdminAllUsers() {
     loadUsers();
   }, []);
 
+  // ---------------- DELETE ----------------
   async function deleteUser(id) {
     Alert.alert("Confirm", "Delete this user?", [
       { text: "Cancel" },
@@ -45,6 +46,7 @@ export default function AdminAllUsers() {
     ]);
   }
 
+  // ---------------- VERIFY ----------------
   async function toggleVerify(user) {
     await supabase
       .from("profiles")
@@ -54,153 +56,236 @@ export default function AdminAllUsers() {
     loadUsers();
   }
 
-  async function updateUser(user) {
+  // ---------------- UPDATE ----------------
+  function openEdit(user) {
+    setEditingUser({ ...user });
+    setModalVisible(true);
+  }
+
+  async function updateUser() {
     await supabase
       .from("profiles")
       .update({
-        full_name: user.full_name,
-        phone: user.phone,
+        full_name: editingUser.full_name,
+        phone: editingUser.phone,
+        role: editingUser.role,
       })
-      .eq("id", user.id);
+      .eq("id", editingUser.id);
 
-    Alert.alert("Updated");
-  }
-
-  async function createUser() {
-    if (!newUser.full_name || !newUser.email) {
-      return Alert.alert("Name and email required");
-    }
-
-    await supabase.from("profiles").insert({
-      ...newUser,
-      role: "user",
-    });
-
-    setNewUser({ full_name: "", email: "", phone: "" });
-    setCreating(false);
+    setModalVisible(false);
     loadUsers();
   }
 
+  // ---------------- EXPORT CSV ----------------
+  async function exportCSV() {
+    const header =
+      "Name,Email,Phone,Role,Verified,CreatedAt\n";
+
+    const rows = users
+      .map(
+        (u) =>
+          `${u.full_name},${u.email},${u.phone || ""},${u.role},${
+            u.is_verified
+          },${u.created_at}`
+      )
+      .join("\n");
+
+    const fileUri = FileSystem.documentDirectory + "users.csv";
+
+    await FileSystem.writeAsStringAsync(fileUri, header + rows);
+
+    await Sharing.shareAsync(fileUri);
+  }
+
+  // ---------------- FILTERED USERS ----------------
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      u.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      u.email?.toLowerCase().includes(search.toLowerCase());
+
+    const matchesRole =
+      roleFilter === "all" ? true : u.role === roleFilter;
+
+    return matchesSearch && matchesRole;
+  });
+
   return (
-    <ScrollView horizontal>
-      <View style={{ padding: 10 }}>
-        <Pressable
-          style={styles.createBtn}
-          onPress={() => setCreating(!creating)}
-        >
-          <Text style={{ color: "white" }}>
-            {creating ? "Cancel" : "Create New User"}
-          </Text>
+    <View style={{ flex: 1 }}>
+      {/* TOP CONTROLS */}
+      <View style={styles.topControls}>
+        <TextInput
+          placeholder="Search by name or email"
+          style={styles.search}
+          value={search}
+          onChangeText={setSearch}
+        />
+
+        <ScrollView horizontal>
+          {["all", "user", "agent", "seller", "admin"].map(
+            (role) => (
+              <Pressable
+                key={role}
+                style={[
+                  styles.filterBtn,
+                  roleFilter === role && styles.activeFilter,
+                ]}
+                onPress={() => setRoleFilter(role)}
+              >
+                <Text
+                  style={{
+                    color:
+                      roleFilter === role ? "white" : "black",
+                  }}
+                >
+                  {role}
+                </Text>
+              </Pressable>
+            )
+          )}
+        </ScrollView>
+
+        <Pressable style={styles.exportBtn} onPress={exportCSV}>
+          <Text style={{ color: "white" }}>Export CSV</Text>
         </Pressable>
-
-        {creating && (
-          <View style={styles.createBox}>
-            <TextInput
-              placeholder="Full Name"
-              style={styles.input}
-              value={newUser.full_name}
-              onChangeText={(v) =>
-                setNewUser({ ...newUser, full_name: v })
-              }
-            />
-            <TextInput
-              placeholder="Email"
-              style={styles.input}
-              value={newUser.email}
-              onChangeText={(v) =>
-                setNewUser({ ...newUser, email: v })
-              }
-            />
-            <TextInput
-              placeholder="Phone"
-              style={styles.input}
-              value={newUser.phone}
-              onChangeText={(v) =>
-                setNewUser({ ...newUser, phone: v })
-              }
-            />
-
-            <Pressable style={styles.saveBtn} onPress={createUser}>
-              <Text style={{ color: "white" }}>Save</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {/* HEADER */}
-        <View style={[styles.row, styles.header]}>
-          <Text style={styles.cellHeader}>Name</Text>
-          <Text style={styles.cellHeader}>Email</Text>
-          <Text style={styles.cellHeader}>Phone</Text>
-          <Text style={styles.cellHeader}>Role</Text>
-          <Text style={styles.cellHeader}>Verified</Text>
-          <Text style={styles.cellHeader}>Actions</Text>
-        </View>
-
-        {users.map((user) => (
-          <View key={user.id} style={styles.row}>
-            <TextInput
-              style={styles.cell}
-              value={user.full_name || ""}
-              onChangeText={(v) =>
-                setUsers((prev) =>
-                  prev.map((u) =>
-                    u.id === user.id ? { ...u, full_name: v } : u
-                  )
-                )
-              }
-            />
-
-            <Text style={styles.cell}>{user.email}</Text>
-
-            <TextInput
-              style={styles.cell}
-              value={user.phone || ""}
-              onChangeText={(v) =>
-                setUsers((prev) =>
-                  prev.map((u) =>
-                    u.id === user.id ? { ...u, phone: v } : u
-                  )
-                )
-              }
-            />
-
-            <Text style={styles.cell}>{user.role}</Text>
-
-            <Pressable
-              style={[
-                styles.verifyBtn,
-                { backgroundColor: user.is_verified ? "green" : "gray" },
-              ]}
-              onPress={() => toggleVerify(user)}
-            >
-              <Text style={{ color: "white" }}>
-                {user.is_verified ? "Verified" : "Verify"}
-              </Text>
-            </Pressable>
-
-            <View style={{ flexDirection: "row", gap: 6 }}>
-              <Pressable
-                style={styles.actionBtn}
-                onPress={() => updateUser(user)}
-              >
-                <Text style={{ color: "white" }}>Update</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.actionBtn, { backgroundColor: "red" }]}
-                onPress={() => deleteUser(user.id)}
-              >
-                <Text style={{ color: "white" }}>Delete</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))}
       </View>
-    </ScrollView>
+
+      {/* TABLE */}
+      <ScrollView horizontal>
+        <View>
+          <View style={[styles.row, styles.header]}>
+            <Text style={styles.cellHeader}>Name</Text>
+            <Text style={styles.cellHeader}>Email</Text>
+            <Text style={styles.cellHeader}>Phone</Text>
+            <Text style={styles.cellHeader}>Role</Text>
+            <Text style={styles.cellHeader}>Verified</Text>
+            <Text style={styles.cellHeader}>Actions</Text>
+          </View>
+
+          {filteredUsers.map((user) => (
+            <View key={user.id} style={styles.row}>
+              <Text style={styles.cell}>{user.full_name}</Text>
+              <Text style={styles.cell}>{user.email}</Text>
+              <Text style={styles.cell}>{user.phone}</Text>
+              <Text style={styles.cell}>{user.role}</Text>
+
+              <Pressable
+                style={[
+                  styles.verifyBtn,
+                  {
+                    backgroundColor: user.is_verified
+                      ? "green"
+                      : "gray",
+                  },
+                ]}
+                onPress={() => toggleVerify(user)}
+              >
+                <Text style={{ color: "white" }}>
+                  {user.is_verified ? "Verified" : "Verify"}
+                </Text>
+              </Pressable>
+
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                <Pressable
+                  style={styles.actionBtn}
+                  onPress={() => openEdit(user)}
+                >
+                  <Text style={{ color: "white" }}>Update</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.actionBtn, { backgroundColor: "red" }]}
+                  onPress={() => deleteUser(user.id)}
+                >
+                  <Text style={{ color: "white" }}>Delete</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      {/* UPDATE MODAL */}
+      <Modal visible={modalVisible} animationType="slide">
+        <View style={styles.modal}>
+          <Text style={styles.modalTitle}>Update User</Text>
+
+          <TextInput
+            style={styles.input}
+            value={editingUser?.full_name}
+            onChangeText={(v) =>
+              setEditingUser({ ...editingUser, full_name: v })
+            }
+            placeholder="Full Name"
+          />
+
+          <TextInput
+            style={styles.input}
+            value={editingUser?.phone}
+            onChangeText={(v) =>
+              setEditingUser({ ...editingUser, phone: v })
+            }
+            placeholder="Phone"
+          />
+
+          <TextInput
+            style={styles.input}
+            value={editingUser?.role}
+            onChangeText={(v) =>
+              setEditingUser({ ...editingUser, role: v })
+            }
+            placeholder="Role"
+          />
+
+          <Pressable style={styles.saveBtn} onPress={updateUser}>
+            <Text style={{ color: "white" }}>Save Changes</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.cancelBtn}
+            onPress={() => setModalVisible(false)}
+          >
+            <Text>Cancel</Text>
+          </Pressable>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  topControls: {
+    padding: 10,
+    backgroundColor: "#f5f5f5",
+  },
+
+  search: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 8,
+    marginBottom: 10,
+    borderRadius: 6,
+  },
+
+  filterBtn: {
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    marginRight: 6,
+    borderRadius: 6,
+  },
+
+  activeFilter: {
+    backgroundColor: "#111",
+  },
+
+  exportBtn: {
+    backgroundColor: "#111",
+    padding: 10,
+    marginTop: 10,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+
   row: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -220,36 +305,7 @@ const styles = StyleSheet.create({
 
   cell: {
     width: 150,
-    padding: 8,
-  },
-
-  createBtn: {
-    backgroundColor: "#111",
     padding: 12,
-    marginBottom: 10,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-  },
-
-  createBox: {
-    backgroundColor: "#f0f0f0",
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 6,
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 8,
-    marginBottom: 8,
-  },
-
-  saveBtn: {
-    backgroundColor: "green",
-    padding: 10,
-    borderRadius: 6,
-    alignItems: "center",
   },
 
   verifyBtn: {
@@ -265,5 +321,38 @@ const styles = StyleSheet.create({
     backgroundColor: "#111",
     padding: 8,
     borderRadius: 6,
+  },
+
+  modal: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    marginBottom: 20,
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 6,
+  },
+
+  saveBtn: {
+    backgroundColor: "green",
+    padding: 12,
+    borderRadius: 6,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  cancelBtn: {
+    marginTop: 10,
+    alignItems: "center",
   },
 });
