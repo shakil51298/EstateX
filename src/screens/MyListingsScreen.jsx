@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet , Pressable, TextInput} from "react-native";
 import { supabase } from "../api/supabase";
 import PropertyCard from "../components/PropertyCard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function MyListingsScreen({ navigation }) {
   const [items, setItems] = useState([]);
@@ -20,9 +21,10 @@ export default function MyListingsScreen({ navigation }) {
   }
 
   useEffect(() => { load(); }, []);
+  const insets = useSafeAreaInsets();
 
   return (
-<View style={s.wrap}>
+<View style={[s.wrap, { paddingTop: insets.top + 8 }]}>
   <FlatList
     data={items}
     keyExtractor={(x) => x.id}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,193 +7,128 @@ import {
   StyleSheet,
   RefreshControl,
   TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../api/supabase";
 import PropertyCard from "../components/PropertyCard";
 
 export default function HomeScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
+
   const [items, setItems] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [role, setRole] = useState(null);
+
+  // quick purpose filter
+  const [purpose, setPurpose] = useState(""); // "sale" | "rent" | ""
+
+  // modal filters
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
-  const [type, setType] = useState("");
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [minArea, setMinArea] = useState("");
+  const [maxArea, setMaxArea] = useState("");
+  const [beds, setBeds] = useState("");
+  const [baths, setBaths] = useState("");
+  const [type, setType] = useState(""); // apartment/land/house/commercial
+  const [location, setLocation] = useState("");
 
   async function load() {
     let query = supabase.from("properties").select("*").eq("is_active", true);
 
-    if (search) {
-      query = query.ilike("title", `%${search}%`);
-    }
+    if (purpose) query = query.eq("purpose", purpose);
 
-    if (minPrice) {
-      query = query.gte("price", Number(minPrice));
-    }
+    if (search) query = query.ilike("title", `%${search}%`);
+    if (location) query = query.ilike("location", `%${location}%`);
 
-    if (maxPrice) {
-      query = query.lte("price", Number(maxPrice));
-    }
+    if (minPrice) query = query.gte("price", Number(minPrice));
+    if (maxPrice) query = query.lte("price", Number(maxPrice));
 
-    if (type) {
-      query = query.eq("type", type);
-    }
+    if (minArea) query = query.gte("area_sqft", Number(minArea));
+    if (maxArea) query = query.lte("area_sqft", Number(maxArea));
+
+    if (beds) query = query.gte("beds", Number(beds));
+    if (baths) query = query.gte("baths", Number(baths));
+
+    if (type) query = query.eq("type", type);
 
     const { data } = await query.order("created_at", { ascending: false });
-
     setItems(data || []);
-  }
-
-  async function checkRole() {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
-
-    const { data } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .single();
-
-    setRole(data?.role);
-  }
-
-  async function loadUnread() {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
-
-    const { data } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("read", false)
-      .neq("sender_id", userId);
-
-    setUnreadCount(data?.length || 0);
   }
 
   useEffect(() => {
     load();
-    checkRole();
-    loadUnread();
-  }, []);
+  }, [purpose]);
 
-  async function logout() {
-    await supabase.auth.signOut();
+  const gridData = useMemo(() => items, [items]);
+
+  function clearFilters() {
+    setSearch("");
+    setMinPrice("");
+    setMaxPrice("");
+    setMinArea("");
+    setMaxArea("");
+    setBeds("");
+    setBaths("");
+    setType("");
+    setLocation("");
   }
 
   return (
-    <View style={s.wrap}>
-      <View style={s.topRow}>
+    <View style={[s.wrap, { paddingTop: insets.top + 8 }]}>
+      {/* Header */}
+      <View style={s.headerRow}>
         <Text style={s.h1}>Explore</Text>
 
-        <View style={s.actions}>
-          {/* <Pressable
-            style={s.pill}
-            onPress={() => navigation.navigate("Favorites")}
-          >
-            <Text style={s.pillText}>Favorites</Text>
-          </Pressable> */}
-          {/* <Pressable
-            style={s.pill}
-            onPress={() => navigation.navigate("MyListings")}
-          >
-            <Text style={s.pillText}>My Listings</Text>
-          </Pressable> */}
-          {/* <Pressable
-            style={[s.pill, s.pillDark]}
-            onPress={() => navigation.navigate("AddProperty")}
-          >
-            <Text style={[s.pillText, { color: "#fff" }]}>+ Add</Text>
-          </Pressable> */}
-          {/* <Pressable
-            style={s.pill}
-            onPress={() => navigation.navigate("MyTransactions")}
-          >
-            <Text style={s.pillText}>My Payments</Text>
-          </Pressable> */}
-
-          {/* <Pressable
-            style={s.pill}
-            onPress={() => navigation.navigate("MyLeads")}
-          >
-            <Text style={s.pillText}>My Leads</Text>
-          </Pressable> */}
-
-          {/* <Pressable
-            style={s.pill}
-            onPress={() => navigation.navigate("Inbox")}
-          >
-            <Text style={s.pillText}>
-              Inbox {unreadCount > 0 ? `(${unreadCount})` : ""}
-            </Text>
-          </Pressable> */}
-
-          {/* <Pressable
-            style={s.pill}
-            onPress={() => navigation.navigate("UpgradePlan")}
-          >
-            <Text style={s.pillText}>Upgrade</Text>
-          </Pressable> */}
-
-          {/* {role === "admin" && (
-            <Pressable style={s.pill} onPress={() => navigation.navigate("Admin")}>
-              <Text style={s.pillText}>
-                Admin Panel
-              </Text>
-            </Pressable>
-          )} */}
-        </View>
+        <Pressable style={s.iconBtn} onPress={() => setFiltersOpen(true)}>
+          <Ionicons name="options-outline" size={22} color="#111" />
+        </Pressable>
       </View>
 
-      {/* <TextInput
-        placeholder="Search by title"
-        value={search}
-        onChangeText={setSearch}
-        style={{ borderWidth: 1, padding: 8, marginBottom: 6 }}
-      />
+      {/* Quick Filters Row */}
+      <View style={s.quickRow}>
+        <Pressable
+          style={[s.quickBtn, purpose === "sale" && s.quickBtnActive]}
+          onPress={() => setPurpose((p) => (p === "sale" ? "" : "sale"))}
+        >
+          <Ionicons name="cash-outline" size={20} color={purpose === "sale" ? "#fff" : "#111"} />
+        </Pressable>
 
-      <TextInput
-        placeholder="Min Price"
-        value={minPrice}
-        onChangeText={setMinPrice}
-        keyboardType="numeric"
-        style={{ borderWidth: 1, padding: 8, marginBottom: 6 }}
-      />
+        <Pressable
+          style={[s.quickBtn, purpose === "rent" && s.quickBtnActive]}
+          onPress={() => setPurpose((p) => (p === "rent" ? "" : "rent"))}
+        >
+          <Ionicons name="key-outline" size={20} color={purpose === "rent" ? "#fff" : "#111"} />
+        </Pressable>
 
-      <TextInput
-        placeholder="Max Price"
-        value={maxPrice}
-        onChangeText={setMaxPrice}
-        keyboardType="numeric"
-        style={{ borderWidth: 1, padding: 8, marginBottom: 6 }}
-      />
+        {/* SELL = go to add listing */}
+        <Pressable
+          style={[s.quickBtn, s.quickBtnDark]}
+          onPress={() => navigation.navigate("AddProperty")}
+        >
+          <Ionicons name="add-circle-outline" size={22} color="#fff" />
+        </Pressable>
+      </View>
 
-      <TextInput
-        placeholder="Type (apartment, land...)"
-        value={type}
-        onChangeText={setType}
-        style={{ borderWidth: 1, padding: 8, marginBottom: 6 }}
-      />
-
-      <Pressable
-        onPress={load}
-        style={{ backgroundColor: "black", padding: 10, marginBottom: 10 }}
-      >
-        <Text style={{ color: "white", textAlign: "center" }}>
-          Apply Filters
-        </Text>
-      </Pressable> */}
-
+      {/* Grid */}
       <FlatList
-        data={items}
+        data={gridData}
         keyExtractor={(x) => x.id}
+        numColumns={3}
+        columnWrapperStyle={s.colWrap}
+        contentContainerStyle={{ paddingBottom: 16 }}
         renderItem={({ item }) => (
-          <PropertyCard
-            item={item}
-            onPress={() =>
-              navigation.navigate("Details", { propertyId: item.id })
-            }
-          />
+          <View style={s.cell}>
+            <PropertyCard
+              item={item}
+              variant="grid"
+              onPress={() => navigation.navigate("Details", { propertyId: item.id })}
+            />
+          </View>
         )}
         refreshControl={
           <RefreshControl
@@ -205,37 +140,196 @@ export default function HomeScreen({ navigation }) {
             }}
           />
         }
-        ListEmptyComponent={
-          <Text style={{ color: "#666", marginTop: 30 }}>
-            No properties yet.
-          </Text>
-        }
+        ListEmptyComponent={<Text style={s.empty}>No properties yet.</Text>}
       />
+
+      {/* Filters Modal */}
+      <Modal visible={filtersOpen} animationType="slide" transparent>
+        <View style={s.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={s.modalSheet}
+          >
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Filters</Text>
+              <Pressable onPress={() => setFiltersOpen(false)}>
+                <Ionicons name="close" size={26} color="#111" />
+              </Pressable>
+            </View>
+
+            <TextInput
+              style={s.input}
+              placeholder="Search title (optional)"
+              value={search}
+              onChangeText={setSearch}
+            />
+
+            <TextInput
+              style={s.input}
+              placeholder="Location (optional)"
+              value={location}
+              onChangeText={setLocation}
+            />
+
+            <View style={s.row}>
+              <TextInput
+                style={[s.input, s.half]}
+                placeholder="Min Price"
+                value={minPrice}
+                onChangeText={setMinPrice}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={[s.input, s.half]}
+                placeholder="Max Price"
+                value={maxPrice}
+                onChangeText={setMaxPrice}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={s.row}>
+              <TextInput
+                style={[s.input, s.half]}
+                placeholder="Min Area (sqft)"
+                value={minArea}
+                onChangeText={setMinArea}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={[s.input, s.half]}
+                placeholder="Max Area (sqft)"
+                value={maxArea}
+                onChangeText={setMaxArea}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={s.row}>
+              <TextInput
+                style={[s.input, s.half]}
+                placeholder="Beds (min)"
+                value={beds}
+                onChangeText={setBeds}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={[s.input, s.half]}
+                placeholder="Baths (min)"
+                value={baths}
+                onChangeText={setBaths}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <TextInput
+              style={s.input}
+              placeholder="Type: apartment/land/house/commercial"
+              value={type}
+              onChangeText={setType}
+            />
+
+            <View style={s.modalActions}>
+              <Pressable
+                style={[s.modalBtn, s.modalBtnGhost]}
+                onPress={() => {
+                  clearFilters();
+                  setPurpose("");
+                }}
+              >
+                <Text style={[s.modalBtnText, { color: "#111" }]}>Clear</Text>
+              </Pressable>
+
+              <Pressable
+                style={[s.modalBtn, s.modalBtnDark]}
+                onPress={async () => {
+                  await load();
+                  setFiltersOpen(false);
+                }}
+              >
+                <Text style={s.modalBtnText}>Apply</Text>
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  wrap: { flex: 1, padding: 16, backgroundColor: "#fafafa" },
-  topRow: { marginBottom: 10 },
+  wrap: { flex: 1, paddingHorizontal: 16, backgroundColor: "#fafafa" },
+
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   h1: { fontSize: 26, fontWeight: "900" },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
-  pill: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 999,
+  iconBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#eee",
     backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  pillDark: { backgroundColor: "#111", borderColor: "#111" },
-  pillText: { fontWeight: "800" },
-  logout: {
-    position: "absolute",
-    right: 16,
-    bottom: 16,
-    backgroundColor: "#111",
+
+  quickRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
+  quickBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#eee",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickBtnActive: { backgroundColor: "#111", borderColor: "#111" },
+  quickBtnDark: { backgroundColor: "#111", borderColor: "#111" },
+
+  colWrap: { gap: 10 },
+  cell: { flex: 1, marginBottom: 10 },
+
+  empty: { color: "#666", marginTop: 30 },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "900" },
+  input: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 14,
     padding: 12,
-    borderRadius: 12,
+    backgroundColor: "#fff",
+    marginBottom: 10,
   },
+  row: { flexDirection: "row", gap: 10 },
+  half: { flex: 1 },
+
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 8 },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 14, alignItems: "center" },
+  modalBtnDark: { backgroundColor: "#111" },
+  modalBtnGhost: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#eee" },
+  modalBtnText: { color: "#fff", fontWeight: "900" },
 });
