@@ -87,65 +87,65 @@ export default function HomeScreen({ navigation }) {
         <Text style={s.h1}>Explore</Text>
 
         <View style={s.actions}>
-          <Pressable
+          {/* <Pressable
             style={s.pill}
             onPress={() => navigation.navigate("Favorites")}
           >
             <Text style={s.pillText}>Favorites</Text>
-          </Pressable>
-          <Pressable
+          </Pressable> */}
+          {/* <Pressable
             style={s.pill}
             onPress={() => navigation.navigate("MyListings")}
           >
             <Text style={s.pillText}>My Listings</Text>
-          </Pressable>
-          <Pressable
+          </Pressable> */}
+          {/* <Pressable
             style={[s.pill, s.pillDark]}
             onPress={() => navigation.navigate("AddProperty")}
           >
             <Text style={[s.pillText, { color: "#fff" }]}>+ Add</Text>
-          </Pressable>
-          <Pressable
+          </Pressable> */}
+          {/* <Pressable
             style={s.pill}
             onPress={() => navigation.navigate("MyTransactions")}
           >
             <Text style={s.pillText}>My Payments</Text>
-          </Pressable>
+          </Pressable> */}
 
-          <Pressable
+          {/* <Pressable
             style={s.pill}
             onPress={() => navigation.navigate("MyLeads")}
           >
             <Text style={s.pillText}>My Leads</Text>
-          </Pressable>
+          </Pressable> */}
 
-          <Pressable
+          {/* <Pressable
             style={s.pill}
             onPress={() => navigation.navigate("Inbox")}
           >
             <Text style={s.pillText}>
               Inbox {unreadCount > 0 ? `(${unreadCount})` : ""}
             </Text>
-          </Pressable>
+          </Pressable> */}
 
-          <Pressable
+          {/* <Pressable
             style={s.pill}
             onPress={() => navigation.navigate("UpgradePlan")}
           >
             <Text style={s.pillText}>Upgrade</Text>
-          </Pressable>
+          </Pressable> */}
 
-          {role === "admin" && (
+          {/* {role === "admin" && (
             <Pressable style={s.pill} onPress={() => navigation.navigate("Admin")}>
               <Text style={s.pillText}>
                 Admin Panel
               </Text>
             </Pressable>
-          )}
+          )} */}
         </View>
       </View>
 
-      <TextInput
+      {/* <TextInput
         placeholder="Search by title"
         value={search}
         onChangeText={setSearch}
@@ -182,7 +182,7 @@ export default function HomeScreen({ navigation }) {
         <Text style={{ color: "white", textAlign: "center" }}>
           Apply Filters
         </Text>
-      </Pressable>
+      </Pressable> */}
 
       <FlatList
         data={items}
@@ -211,10 +211,6 @@ export default function HomeScreen({ navigation }) {
           </Text>
         }
       />
-
-      <Pressable style={s.logout} onPress={logout}>
-        <Text style={{ color: "#fff", fontWeight: "800" }}>Logout</Text>
-      </Pressable>
     </View>
   );
 }

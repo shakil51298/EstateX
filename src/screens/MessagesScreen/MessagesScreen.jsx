@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
-import { supabase } from "../api/supabase";
+import { supabase } from "../../api/supabase";
 
 export default function InboxScreen({ navigation }) {
   const [conversations, setConversations] = useState([]);

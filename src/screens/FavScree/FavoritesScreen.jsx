@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet } from "react-native";
-import { supabase } from "../api/supabase";
-import PropertyCard from "../components/PropertyCard";
+import { supabase } from "../../api/supabase";
+import PropertyCard from "../../components/PropertyCard";
 
 export default function FavoritesScreen({ navigation }) {
   const [items, setItems] = useState([]);

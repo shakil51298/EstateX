@@ -11,7 +11,7 @@ import {
   AppState,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { supabase } from "../api/supabase";
+import { supabase } from "../../../api/supabase";
 
 export default function ChatScreen({ route }) {
   const { property, conversationId: passedId } = route.params || {};
